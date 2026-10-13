@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buckshot Sustentable</title>
+    <style>
+        :root {
+            --bg-base: #080808;
+            --panel-bg: #141414;
+            --panel-border: #2a2a2a;
+            --text-main: #d0d0d0;
+            --text-muted: #666666;
+            --accent-red: #9e1313;
+            --accent-red-glow: #ff4c4c;
+            --accent-green: #2e7d32;
+            --accent-gold: #c48b11;
+            --accent-blue: #2962ff;
+            --font-main: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            background-image: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        }
+
+        /* Efecto CRT / Scanlines tenue */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0.4;
+        }
+
+        #app {
+            width: 95vw;
+            height: 90vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 10;
+        }
+
+        .view {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* Títulos */
+        .title {
+            font-size: 4.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            text-align: center;
+            letter-spacing: 4px;
+            color: #fff;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #000, 0 0 20px rgba(255, 255, 255, 0.2);
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin-bottom: 3rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Botones Generales */
+        .btn {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            font-family: var(--font-main);
+            background-color: #1a1a1a;
+            color: var(--text-main);
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+            transition: left 0.3s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            background-color: #2a2a2a;
+            border-color: #666;
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Tablero */
+        .board {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            justify-content: space-between;
+        }
+
+        /* Paneles de Equipo */
+        .team-panel {
+            width: 30%;
+            background-color: var(--panel-bg);
+            border: 2px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            transition: all 0.4s ease;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .team-panel.active-turn {
+            border-color: #4a4a4a;
+            box-shadow: inset 0 0 30px rgba(41, 98, 255, 0.1), 0 0 15px rgba(255, 255, 255, 0.05);
+            background-color: #1a1c23;
+        }
+
+        .team-panel.active-turn::after {
+            content: 'TU TURNO';
+            position: absolute;
+            top: 10px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+            letter-spacing: 2px;
+            animation: pulse-text 1.5s infinite;
+        }
+
+        .team-name {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-family: sans-serif;
+            letter-spacing: 1px;
+        }
+
+        .score {
+            font-size: 1.8rem;
+            color: var(--text-muted);
+            background: #000;
+            padding: 5px 15px;
+            border-radius: 4px;
+            border: 1px solid #222;
+        }
+
+        /* Vidas (LEDs interactivos) */
+        .lives {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .life {
+            width: 35px;
+            height: 35px;
+            background: radial-gradient(circle at 30% 30%, var(--accent-red-glow), var(--accent-red));
+            border: 2px solid #000;
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-red), inset 0 -3px 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .life.lost {
+            background: #111;
+            box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.8);
+            border-color: #222;
+            transform: scale(0.85);
+        }
+
+        .life.bonus-heal {
+            animation: heal-flash 1s ease-out;
+        }
+
+        /* Consola Central (Arma) */
+        .center-console {
+            width: 35%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chamber-info {
+            background: #0d0d0d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+            border: 1px solid #333;
+            width: 90%;
+            text-align: center;
+            box-shadow: inset 0 0 20px #000;
+        }
+
+        .chamber-info h3 {
+            margin-bottom: 10px;
+            font-size: 1.8rem;
+            color: #fff;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .chamber-desc {
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+
+        .bullets-left {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 20px 0 10px 0;
+            min-height: 50px;
+        }
+
+        .bullet-icon {
+            width: 18px;
+            height: 45px;
+            background: linear-gradient(90deg, #444, #777, #333);
+            border-radius: 10px 10px 2px 2px;
+            border: 1px solid #111;
+            box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+            transition: transform 0.3s, opacity 0.3s;
+        }
+
+        .bullet-icon.spent {
+            transform: translateY(20px) rotate(45deg);
+            opacity: 0;
+        }
+
+        /* Controles de Disparo */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 90%;
+        }
+
+        .btn-shoot {
+            background-color: #111;
+            border: 1px solid #444;
+            padding: 20px;
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn-shoot span.target {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .btn-shoot:hover {
+            background-color: #222;
+            border-color: #888;
+        }
+
+        /* Modal de Pregunta */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .question-box {
+            background: #111;
+            padding: 50px;
+            border-radius: 4px;
+            border: 1px solid #333;
+            max-width: 800px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+            animation: slideUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .question-type {
+            font-size: 1.2rem;
+            color: var(--accent-red);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .question-type.bonus {
+            color: var(--accent-gold);
+        }
+
+        .target-alert {
+            font-size: 1.6rem;
+            color: #fff;
+            margin-bottom: 30px;
+            background: #222;
+            display: inline-block;
+            padding: 5px 20px;
+            border-radius: 20px;
+        }
+
+        .question-text {
+            font-size: 2.2rem;
+            margin-bottom: 40px;
+            line-height: 1.4;
+            font-family: sans-serif;
+            color: #eaeaea;
+        }
+
+        .mod-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            border-top: 1px solid #333;
+            padding-top: 30px;
+        }
+
+        .btn-correct {
+            background-color: #112d12;
+            border-color: var(--accent-green);
+            color: #81c784;
+        }
+
+        .btn-correct:hover {
+            background-color: var(--accent-green);
+            color: #fff;
+        }
+
+        .btn-incorrect {
+            background-color: #3b0b0b;
+            border-color: var(--accent-red);
+            color: #e57373;
+        }
+
+        .btn-incorrect:hover {
+            background-color: var(--accent-red);
+            color: #fff;
+        }
+
+        /* Pantallazo de Impacto */
+        #flash-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 150;
+            transition: opacity 0.1s;
+        }
+
+        #flash-msg {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5);
+            font-size: 5rem;
+            font-weight: bold;
+            font-family: sans-serif;
+            text-transform: uppercase;
+            text-shadow: 0 0 30px rgba(0, 0, 0, 1);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 200;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        #flash-msg.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .text-blank {
+            color: #888;
+            text-shadow: 0 0 20px #000;
+        }
+
+        .text-live {
+            color: #ff3333;
+            text-shadow: 0 0 40px #ff0000;
+        }
+
+        .text-bonus {
+            color: #ffd700;
+            text-shadow: 0 0 40px #ffaa00;
+        }
+
+        /* Animaciones Globales */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes pulse-text {
+
+            0%,
+            100% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Animación de Daño (Shake) */
+        @keyframes shake {
+            0% {
+                transform: translate(1px, 1px) rotate(0deg);
+            }
+
+            10% {
+                transform: translate(-2px, -2px) rotate(-1deg);
+            }
+
+            20% {
+                transform: translate(-3px, 0px) rotate(1deg);
+            }
+
+            30% {
+                transform: translate(3px, 2px) rotate(0deg);
+            }
+
+            40% {
+                transform: translate(1px, -1px) rotate(1deg);
+            }
+
+            50% {
+                transform: translate(-1px, 2px) rotate(-1deg);
+            }
+
+            60% {
+                transform: translate(-3px, 1px) rotate(0deg);
+            }
+
+            70% {
+                transform: translate(3px, 1px) rotate(-1deg);
+            }
+
+            80% {
+                transform: translate(-1px, -1px) rotate(1deg);
+            }
+
+            90% {
+                transform: translate(1px, 2px) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+        }
+
+        .take-damage {
+            animation: shake 0.5s;
+            border-color: var(--accent-red) !important;
+            box-shadow: inset 0 0 50px rgba(255, 0, 0, 0.5) !important;
+        }
+
+        /* Animación de Cura */
+        @keyframes heal-flash {
+            0% {
+                box-shadow: 0 0 20px #0f0;
+                background: #4caf50;
+            }
+
+            100% {
+                box-shadow: 0 0 10px var(--accent-red);
+                background: radial-gradient(circle at 30% 30%, var(--accent-red-glow), var(--accent-red));
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="flash-overlay"></div>
+    <div id="flash-msg"></div>
+
+    <div id="app">
+        <!-- PANTALLA INICIO -->
+        <div id="view-start" class="view active">
+            <h1 class="title">Buckshot Sustentable</h1>
+            <p class="subtitle">Ordenamiento, Legislación y Supervivencia</p>
+            <button class="btn" onclick="initGame()">[ Cargar Dinámica ]</button>
+        </div>
+
+        <!-- PANTALLA JUEGO -->
+        <div id="view-game" class="view">
+            <div class="board">
+                <!-- EQUIPO 1 -->
+                <div id="panel-team-0" class="team-panel">
+                    <div style="text-align: center;">
+                        <h2 class="team-name">EQUIPO 1</h2>
+                        <div class="score" id="score-0">000</div>
+                    </div>
+                    <div class="lives" id="lives-0"></div>
+                </div>
+
+                <!-- CONSOLA CENTRAL -->
+                <div class="center-console">
+                    <div class="chamber-info">
+                        <h3 id="round-title">RONDA 1</h3>
+                        <div class="bullets-left" id="bullets-container"></div>
+                        <p class="chamber-desc" id="chamber-desc">...</p>
+                    </div>
+
+                    <div class="controls" id="action-controls">
+                        <button class="btn btn-shoot" onclick="shoot(0)">
+                            Dispararse a sí mismo <span class="target" id="target-self">[Eq X]</span>
+                        </button>
+                        <button class="btn btn-shoot" onclick="shoot(1)">
+                            Disparar al Rival <span class="target" id="target-enemy">[Eq Y]</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EQUIPO 2 -->
+                <div id="panel-team-1" class="team-panel">
+                    <div style="text-align: center;">
+                        <h2 class="team-name">EQUIPO 2</h2>
+                        <div class="score" id="score-1">000</div>
+                    </div>
+                    <div class="lives" id="lives-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANTALLA FIN JUEGO -->
+        <div id="view-end" class="view">
+            <h1 class="title" id="winner-text">EQUIPO X SOBREVIVE</h1>
+            <p class="subtitle" id="final-score" style="font-size: 2rem; color: #fff;">Puntuación: 000</p>
+            <button class="btn" onclick="location.reload()" style="margin-top: 30px;">[ Jugar de Nuevo ]</button>
+        </div>
+    </div>
+
+    <!-- MODAL PREGUNTAS -->
+    <div id="modal-question" class="modal-overlay">
+        <div class="question-box">
+            <div class="question-type" id="q-type">CARTUCHO CARGADO</div>
+            <div class="target-alert" id="q-target">Objetivo: Equipo X</div>
+            <div class="question-text" id="q-text">¿Pregunta?</div>
+
+            <p style="color: #555; font-size: 0.8rem; letter-spacing: 1px;">/// CONTROLES DEL MODERADOR ///</p>
+            <div class="mod-controls">
+                <button class="btn btn-correct" onclick="resolveQuestion(true)">[ Respuesta Correcta ]</button>
+                <button class="btn btn-incorrect" onclick="resolveQuestion(false)">[ Respuesta Incorrecta ]</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* ================= BANCOS DE PREGUNTAS ================= */
+        const normalQuestionsBank = [
+            "¿Qué significan las siglas LGEEPA?",
+            "¿De qué plan general sexenal derivan los Programas Sectoriales de cada Secretaría?",
+            "¿Qué documento preventivo (MIA) se debe presentar ante SEMARNAT antes de construir carreteras o parques eólicos?",
+            "¿Qué Secretaría de Estado fiscaliza y orienta al resto de sectores mediante el PROMARNAT?",
+            "Del programa de Bienestar: ¿Cómo se llama el programa que atiende marginación vinculando apoyos con reforestación?",
+            "¿Qué establece la NOM-001-SEMARNAT-2021?",
+            "Es el instrumento para regular el uso de suelo dividido en Unidades de Gestión (UGAs). ¿Cuáles son sus siglas?",
+            "En Veracruz, ¿Qué parque nacional marino se ve afectado por las descargas no tratadas?",
+            "Según la Ley de Planeación, ¿qué institución mide y verifica los indicadores sexenales (ej. pobreza)?",
+            "¿Qué Secretaría promueve innovación industrial limpia y economía circular?"
+        ];
+
+        const bonusQuestionsBank = [
+            "Nombra al menos UNA laguna interdunaria de Veracruz mencionada que sufra relleno clandestino.",
+            "¿Qué Norma Oficial Mexicana protege específicamente a los humedales costeros y manglares?",
+            "En el caso del humedal, ¿por qué NO se aprueba el hotel aunque prometan 60 millones de USD y empleos?"
+        ];
+
+        let normalPool = [];
+        let bonusPool = [];
+
+        /* ================= ESTADO ================= */
+        let teams = [
+            { id: 0, name: "Equipo 1", lives: 4, score: 0 },
+            { id: 1, name: "Equipo 2", lives: 4, score: 0 }
+        ];
+
+        let currentTurn = 0;
+        let chamber = [];
+        let round = 1;
+        let activeBullet = null;
+        let answeringTeam = null;
+
+        /* ================= INICIO ================= */
+        function initGame() {
+            refillPools();
+            document.getElementById('view-start').classList.remove('active');
+            document.getElementById('view-game').classList.add('active');
+            currentTurn = Math.random() < 0.5 ? 0 : 1;
+            startRound();
+        }
+
+        function refillPools() {
+            normalPool = [...normalQuestionsBank].sort(() => Math.random() - 0.5);
+            bonusPool = [...bonusQuestionsBank].sort(() => Math.random() - 0.5);
+        }
+
+        function getQuestion(isBonus) {
+            if (isBonus && bonusPool.length === 0) refillPools();
+            if (!isBonus && normalPool.length === 0) refillPools();
+            return isBonus ? bonusPool.pop() : normalPool.pop();
+        }
+
+        /* ================= CARGA DE RECÁMARA ================= */
+        function startRound() {
+            updateUI();
+
+            let totalBullets = Math.floor(Math.random() * 3) + 3; // 3 a 5 balas
+            let liveCount = Math.floor(totalBullets / 2) + (Math.random() > 0.5 ? 1 : 0);
+            if (liveCount < 1) liveCount = 1;
+            if (liveCount >= totalBullets) liveCount = totalBullets - 1;
+
+            let blankCount = totalBullets - liveCount;
+            chamber = [];
+
+            // Lógica de Vidas: Si ambos tienen 4, NO hay bonus.
+            let canHaveBonus = (teams[0].lives < 4 || teams[1].lives < 4);
+
+            for (let i = 0; i < blankCount; i++) chamber.push({ type: 'blank' });
+
+            for (let i = 0; i < liveCount; i++) {
+                // 30% prob de ser bonus si alguien necesita vida
+                let isBonus = canHaveBonus && (Math.random() < 0.3);
+                chamber.push({
+                    type: 'live',
+                    isBonus: isBonus,
+                    text: getQuestion(isBonus)
+                });
+            }
+
+            chamber.sort(() => Math.random() - 0.5); // Mezclar
+
+            document.getElementById('round-title').innerText = `RONDA ${round}`;
+            document.getElementById('chamber-desc').innerText = `[ ${liveCount} Real | ${blankCount} Falsa ]`;
+
+            renderBullets();
+            document.getElementById('action-controls').style.opacity = '1';
+            document.getElementById('action-controls').style.pointerEvents = 'auto';
+        }
+
+        /* ================= DISPARO Y RESOLUCIÓN ================= */
+        function shoot(targetType) {
+            let targetTeamIndex = targetType === 0 ? currentTurn : (currentTurn === 0 ? 1 : 0);
+
+            // Ocultar controles temporalmente
+            document.getElementById('action-controls').style.opacity = '0.3';
+            document.getElementById('action-controls').style.pointerEvents = 'none';
+
+            // Expulsar bala de la UI
+            const bulletsUI = document.querySelectorAll('.bullet-icon:not(.spent)');
+            if (bulletsUI.length > 0) bulletsUI[bulletsUI.length - 1].classList.add('spent');
+
+            activeBullet = chamber.pop();
+
+            // Simular tensión
+            setTimeout(() => {
+                if (activeBullet.type === 'blank') {
+                    triggerFlash(false);
+                    showTextFlash("CLICK", "text-blank");
+
+                    setTimeout(() => {
+                        if (targetType !== 0) switchTurn(); // Si dispara al rival y es falsa, pierde turno
+                        checkChamber();
+                    }, 2000);
+
+                } else {
+                    triggerFlash(true);
+                    showTextFlash("¡BANG!", activeBullet.isBonus ? "text-bonus" : "text-live");
+                    answeringTeam = targetTeamIndex;
+
+                    setTimeout(() => {
+                        openQuestionModal(activeBullet, answeringTeam);
+                    }, 1800);
+                }
+            }, 800);
+        }
+
+        function openQuestionModal(bullet, targetIdx) {
+            const modal = document.getElementById('modal-question');
+            const qType = document.getElementById('q-type');
+
+            if (bullet.isBonus) {
+                qType.innerText = "★ CARTUCHO BONUS (RECUPERA VIDA) ★";
+                qType.className = "question-type bonus";
+            } else {
+                qType.innerText = "CARTUCHO CARGADO";
+                qType.className = "question-type";
+            }
+
+            document.getElementById('q-target').innerText = `Objetivo: ${teams[targetIdx].name}`;
+            document.getElementById('q-text').innerText = bullet.text;
+            modal.classList.add('active');
+        }
+
+        function resolveQuestion(isCorrect) {
+            document.getElementById('modal-question').classList.remove('active');
+            let t = teams[answeringTeam];
+
+            if (isCorrect) {
+                t.score += activeBullet.isBonus ? 200 : 100;
+                if (activeBullet.isBonus && t.lives < 4) {
+                    t.lives++;
+                    animateLifeHeal(answeringTeam, t.lives - 1);
+                }
+            } else {
+                t.lives--;
+                animateDamage(answeringTeam);
+            }
+
+            updateUI();
+            if (checkGameOver()) return;
+
+            // Bala real siempre cambia el turno (según Buckshot)
+            switchTurn();
+            setTimeout(checkChamber, 1000);
+        }
+
+        /* ================= ANIMACIONES Y UI ================= */
+        function switchTurn() {
+            currentTurn = currentTurn === 0 ? 1 : 0;
+            updateUI();
+        }
+
+        function checkChamber() {
+            if (chamber.length === 0) {
+                round++;
+                setTimeout(startRound, 1000);
+            } else {
+                document.getElementById('action-controls').style.opacity = '1';
+                document.getElementById('action-controls').style.pointerEvents = 'auto';
+            }
+        }
+
+        function updateUI() {
+            const p0 = document.getElementById('panel-team-0');
+            const p1 = document.getElementById('panel-team-1');
+
+            p0.classList.toggle('active-turn', currentTurn === 0);
+            p1.classList.toggle('active-turn', currentTurn === 1);
+
+            let enemyName = currentTurn === 0 ? teams[1].name : teams[0].name;
+            let selfName = teams[currentTurn].name;
+
+            document.getElementById('target-self').innerText = `[${selfName}]`;
+            document.getElementById('target-enemy').innerText = `[${enemyName}]`;
+
+            for (let i = 0; i < 2; i++) {
+                document.getElementById(`score-${i}`).innerText = teams[i].score.toString().padStart(3, '0');
+
+                const livesContainer = document.getElementById(`lives-${i}`);
+                // Solo reconstruir si la cantidad de hijos no es 4 para evitar parpadeos en animaciones
+                if (livesContainer.children.length === 0) {
+                    livesContainer.innerHTML = '<div class="life"></div>'.repeat(4);
+                }
+
+                // Actualizar estado visual de vidas
+                Array.from(livesContainer.children).forEach((lifeDiv, index) => {
+                    if (index < teams[i].lives) {
+                        lifeDiv.classList.remove('lost');
+                    } else {
+                        lifeDiv.classList.add('lost');
+                        lifeDiv.classList.remove('bonus-heal'); // reset heal class
+                    }
+                });
+            }
+        }
+
+        function renderBullets() {
+            let html = '';
+            for (let i = 0; i < chamber.length; i++) html += `<div class="bullet-icon"></div>`;
+            document.getElementById('bullets-container').innerHTML = html;
+        }
+
+        function triggerFlash(isLive) {
+            const overlay = document.getElementById('flash-overlay');
+            overlay.style.background = isLive ? '#ff0000' : '#ffffff';
+            overlay.style.opacity = isLive ? '0.6' : '0.2';
+            setTimeout(() => { overlay.style.opacity = '0'; }, 80);
+        }
+
+        function showTextFlash(text, colorClass) {
+            const msg = document.getElementById('flash-msg');
+            msg.innerText = text;
+            msg.className = '';
+            msg.classList.add('show', colorClass);
+            setTimeout(() => { msg.classList.remove('show'); }, 1200);
+        }
+
+        function animateDamage(teamIdx) {
+            const panel = document.getElementById(`panel-team-${teamIdx}`);
+            panel.classList.remove('take-damage'); // reset
+            void panel.offsetWidth; // trigger reflow
+            panel.classList.add('take-damage');
+        }
+
+        function animateLifeHeal(teamIdx, lifeIndex) {
+            const livesContainer = document.getElementById(`lives-${teamIdx}`);
+            if (livesContainer.children[lifeIndex]) {
+                const lifeDiv = livesContainer.children[lifeIndex];
+                lifeDiv.classList.add('bonus-heal');
+            }
+        }
+
+        function checkGameOver() {
+            if (teams[0].lives <= 0 || teams[1].lives <= 0) {
+                let winner = teams[0].lives > 0 ? teams[0] : teams[1];
+                if (teams[0].lives <= 0 && teams[1].lives <= 0) {
+                    winner = teams[0].score >= teams[1].score ? teams[0] : teams[1];
+                }
+
+                setTimeout(() => {
+                    document.getElementById('view-game').classList.remove('active');
+                    document.getElementById('view-end').classList.add('active');
+                    document.getElementById('winner-text').innerText = `${winner.name} SOBREVIVE`;
+                    document.getElementById('final-score').innerText = `PUNTUACIÓN: ${winner.score.toString().padStart(3, '0')}`;
+                }, 1000);
+                return true;
+            }
+            return false;
+        }
+    </script>
+</body>
+
+</html>
